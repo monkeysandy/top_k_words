@@ -1,7 +1,5 @@
-# top_k_words
-COEN242 PA1
+## docker
 
-These file are too big to add in Github:
-data_300MB.txt
-data_2.5GB.txt
-data_16GB.txt
+run "docker build -t topkword ."
+
+run "docker run -t -i topkword"
