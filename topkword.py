@@ -6,7 +6,7 @@ import time
 import multiprocessing as mp
 import psutil
 
-file_path = 'dataset/data_2.5GB.txt'
+file_path = 'dataset/data_300MB.txt'
 stopword_path = 'stopword.txt'
 
 # def shard_file(file_path, chunk_size):
@@ -71,7 +71,7 @@ def count_words(chunk, stop_words):
                 word_count[word] = 1
     return word_count
 
-def top_k_words(file_path, stopword_path, k, chunk_size, num_processes):
+def top_k_words(file_path, stopword_path, k, shard, num_processes):
     # Count word frequencies in a file
     # and return top k words and their frequencies
 
@@ -79,7 +79,7 @@ def top_k_words(file_path, stopword_path, k, chunk_size, num_processes):
         Input: file_path - path to file
                stopword_path - path to stopword file
                k - number of top words to return
-               chunk_size - size of each chunk in bytes
+               shard - number of shards to split file into
                num_processes - number of processes to use
         Output: DataFrame with top k words and their frequencies
                 sorted in descending order
@@ -93,19 +93,20 @@ def top_k_words(file_path, stopword_path, k, chunk_size, num_processes):
     
     # Determine chunk size and number of chunks
     # the input file will be split into
-    file_size = os.path.getsize(file_path)
-    num_chunks = file_size // chunk_size + 1
+    # file_size = os.path.getsize(file_path)
+    # file_size = int(os.popen('wc -l < {}'.format(file_path)).read())
+    file_size = int(os.popen('wc -c < {}'.format(file_path)).read())
+    chunk_size = int(np.ceil(file_size / shard))
+    # num_chunks = file_size // chunk_size + 1
     
     # Set up multiprocessing pool
-    # Each process will process one chunk
-
     pool = mp.Pool(num_processes)
     
     # Process each chunk in a separate process
     # and store the results in a list
     results = []
     with open(file_path) as f:
-        for i in range(num_chunks):
+        for i in range(shard):
             chunk = f.read(chunk_size).lower()
             # apply_async() schedules the function to be executed asynchronously
             # in a separate process and returns a 'asyncresult' object
@@ -147,26 +148,61 @@ def MainUserInterface():
     if k < 1:
         print("Please enter a positive integer")
     
-    print("Please enter the chunk size you would like to use (in bytes)[default: 10,000,000]]")
-    chunk_size = int(input())
-    if chunk_size < 1:
+    print("Please enter the shard number you would like to split the file into")
+    shard = int(input())
+    if shard < 1:
         print("Please enter a positive integer")
-    num_chunks = os.path.getsize(file_path) // chunk_size + 1
+    file_size = int(os.popen('wc -c < {}'.format(file_path)).read())
+    # num_chunks = file_size // chunk_size + 1
+    # num_chunks = os.path.getsize(file_path) // chunk_size + 1
+    chunk_size = int(np.ceil(file_size / shard))
 
     print("Please enter the number of processes you would like to use [default: 4]")
     num_processes = int(input())
     if num_processes < 1:
         print("Please enter a positive integer")
     print('---------Starting Word Frequency Counter---------')
-    print('Starting on {} using {} processes with {} chunks'.format(file_path, num_processes, num_chunks))
+    print('Starting on {} using {} processes'.format(file_path, num_processes))
+    print('File size: {} bytes'.format(file_size))
+    print('shard number: {}'.format(shard))
+    print('------------TOP {} WORDS ------------'.format(k))
 
     # print('Current total memory: {} GB'.format(psutil.virtual_memory()[0] / 1e9))
     # print('Current available memory: {} GB'.format(psutil.virtual_memory()[1] / 1e9))
     # print('Current CPU usage: {} %'.format(psutil.cpu_percent()))
     
     start_time = time.time()
-    top_k_words(file_path, stopword_path, k, chunk_size, num_processes)
+    top_k_words(file_path, stopword_path, k, shard, num_processes)
     end_time = time.time()
     print("Time taken: ", end_time - start_time)
+
+def test():
+    K_list = [5, 10, 15, 20]
+    # chunk_size_list = [312500, 625000, 1250000, 2500000, 5000000, 10000000]
+    shard_list = [10, 50, 100, 200, 500, 1000, 1500, 2000]
+    print("Generating test results...")
+    resulttime = {}
+    for k in K_list:
+        print("test top {} words on 300MB file".format(k))
+        testtime = []
+        for shard in shard_list:
+            file_size = int(os.popen('wc -c < {}'.format(file_path)).read())
+            chunk_size = int(np.ceil(file_size / shard))
+            print("test chunk size: {}".format(chunk_size))
+            print("test shard number: {}".format(shard))
+            start_time = time.time()
+            top_k_words(file_path, stopword_path, k, shard, 4)
+            end_time = time.time()
+            print("Average time taken: ", end_time - start_time)
+            print("------------------------------------------------")
+            testtime.append(end_time - start_time)
+        resulttime[k] = testtime
+    print("Complete test results:")
+    return shard_list, resulttime
+
 if __name__ == '__main__':
-    MainUserInterface()
+    # start_time = time.time()
+    # top_k_words(file_path, stopword_path, 10, 1000, 4)
+    # print("Time taken: ", time.time() - start_time)
+    # MainUserInterface()
+    print(test())
